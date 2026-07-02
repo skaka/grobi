@@ -1,0 +1,83 @@
+# إعداد Codemagic لبناء ونشر تطبيق iOS (التوقيت الغروبي) سحابياً.
+#
+# قبل أول تشغيل، اضبط في واجهة Codemagic:
+#   1) تكامل App Store Connect API key باسم:  TimerGrobi_ASC_API_Key
+#      (Team settings ▸ Integrations ▸ App Store Connect ▸ أضف مفتاح: Issuer ID + Key ID + ملف .p8)
+#   2) توقيع iOS تلقائي (distribution_type: app_store) — Codemagic ينشئ/يجلب ملف التوصيف
+#      لمعرّف الحزمة com.misoor.grobi (تأكّد أن قدرة Push Notifications مفعّلة على App ID).
+#   3) أنشئ سجلّ التطبيق في App Store Connect بمعرّف com.misoor.grobi (لازم لرفع TestFlight).
+#
+# متطلّبات الإشعارات: ارفع مفتاح APNs (.p8) في Firebase Console ▸ Cloud Messaging،
+# وإلا لن تصل إشعارات Push إلى iOS.
+#
+# مفاتيح Firebase (client) غير مرفوعة على Git — تُحقن هنا وقت البناء.
+# أضِف في Codemagic (Environment variables، مجموعة "firebase"، مع تفعيل Secure):
+#   FIREBASE_OPTIONS_DART_B64      = محتوى lib/firebase_options.dart          مُرمَّز base64
+#   GOOGLE_SERVICE_INFO_PLIST_B64  = محتوى ios/Runner/GoogleService-Info.plist مُرمَّز base64
+# (لا تضع القيم الخام داخل هذا الملف — فهو مرفوع على Git.)
+
+workflows:
+  ios-testflight:
+    name: iOS ▸ TestFlight (التوقيت الغروبي)
+    instance_type: mac_mini_m2
+    max_build_duration: 90
+    integrations:
+      app_store_connect: TimerGrobi_ASC_API_Key
+    environment:
+      groups:
+        - firebase
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.misoor.grobi
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Restore Firebase config from encrypted env vars
+        script: |
+          set -e
+          if [ -z "$FIREBASE_OPTIONS_DART_B64" ] || [ -z "$GOOGLE_SERVICE_INFO_PLIST_B64" ]; then
+            echo "خطأ: متغيّرات Firebase المشفّرة غير مضبوطة في Codemagic." >&2
+            exit 1
+          fi
+          echo "$FIREBASE_OPTIONS_DART_B64" | base64 --decode > lib/firebase_options.dart
+          echo "$GOOGLE_SERVICE_INFO_PLIST_B64" | base64 --decode > ios/Runner/GoogleService-Info.plist
+          echo "تم توليد ملفّي إعداد Firebase."
+      - name: Ensure GoogleService-Info.plist is in the Runner target
+        script: |
+          gem list -i xcodeproj >/dev/null 2>&1 || gem install xcodeproj --no-document
+          ruby <<'RUBY'
+          require 'xcodeproj'
+          project = Xcodeproj::Project.open('ios/Runner.xcodeproj')
+          target  = project.targets.find { |t| t.name == 'Runner' }
+          name    = 'GoogleService-Info.plist'
+          exists  = target.resources_build_phase.files_references.any? { |f| f && f.display_name == name }
+          if exists
+            puts "#{name} already in Runner target — skipping"
+          else
+            group = project.main_group.find_subpath('Runner', true)
+            ref   = group.new_reference(name)
+            target.resources_build_phase.add_file_reference(ref)
+            project.save
+            puts "Added #{name} to Runner target"
+          end
+          RUBY
+      - name: Set up iOS code signing (automatic profiles)
+        script: xcode-project use-profiles
+      - name: Get Flutter packages
+        script: flutter pub get
+      - name: Install CocoaPods dependencies
+        script: find . -name "Podfile" -execdir pod install \;
+      - name: Flutter build ipa
+        script: |
+          flutter build ipa --release \
+            --build-number=$PROJECT_BUILD_NUMBER \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - flutter_drive.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
