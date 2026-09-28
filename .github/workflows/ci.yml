@@ -1,0 +1,40 @@
+# تحليل واختبار كل دفع وطلب دمج — بلا أسرار: ملفات Firebase غير مرفوعة، فيُستبدل
+# lib/firebase_options.dart بنسخة وهمية تكفي للتحليل والاختبارات (لا بناء APK هنا).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Stub Firebase options (real file is gitignored)
+        run: |
+          if [ ! -f lib/firebase_options.dart ]; then
+            cat > lib/firebase_options.dart <<'DART'
+          import 'package:firebase_core/firebase_core.dart';
+
+          /// نسخة وهمية للتكامل المستمر فقط — التطبيق الحقيقي يولّدها flutterfire.
+          class DefaultFirebaseOptions {
+            static FirebaseOptions get currentPlatform =>
+                throw UnsupportedError('Firebase is not configured in CI');
+          }
+          DART
+          fi
+
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - name: Day arithmetic under DST time zones
+        run: tool/test_dst.sh

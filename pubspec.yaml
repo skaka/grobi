@@ -16,9 +16,8 @@ dependencies:
   adhan: ^2.0.0
   # تحويل التاريخ الهجري الحسابي
   hijri: ^3.0.1
-  # GPS + الارتفاع عن سطح البحر
+  # GPS (يطلب إذن الموقع بنفسه)
   geolocator: ^13.0.2
-  permission_handler: ^11.3.1
   # إدارة الحالة
   flutter_riverpod: ^2.5.1
   # التنسيق والأرقام والتعريب
@@ -35,6 +34,7 @@ dependencies:
   url_launcher: ^6.3.2
   # حسّاسات الجهاز (مغناطيسي + تسارع) لحساب اتجاه البوصلة في شاشة القبلة
   sensors_plus: ^7.1.0
+  firebase_crashlytics: ^5.4.0
 
 dev_dependencies:
   flutter_test:
@@ -55,6 +55,8 @@ flutter_launcher_icons:
 
 flutter:
   uses-material-design: true
+  # يولّد AppLocalizations من lib/l10n/*.arb (انظر l10n.yaml).
+  generate: true
 
   assets:
     - assets/icon/icon.png            # شعار التطبيق (يُعرض في صفحة «عن»)

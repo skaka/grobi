@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/hijri_calibration.dart';
+import '../core/date_utils.dart';
+import '../core/format_utils.dart';
+import '../core/umm_alqura_corrections.dart';
+import '../l10n/l10n.dart';
 import '../models/islamic_event.dart';
 import '../services/announcements_api.dart';
 import '../services/announcements_store.dart';
@@ -18,9 +21,14 @@ class SyncResult {
 
 /// نافذة الأهمية للتنبيه: من 3 أيام مضت إلى 45 يوماً قادمة.
 bool relevantForNotification(DateTime eventDate, DateTime now) {
-  final d = eventDate.difference(DateTime(now.year, now.month, now.day)).inDays;
+  final d = daysBetween(now, eventDate);
   return d >= -3 && d <= 45;
 }
+
+/// هل تُظهر المزامنة تنبيهاً لإعلانٍ جديد؟ فقط لمناسبة مسمّاة لم يُنشر صامتاً،
+/// ضمن نافذة الأهمية.
+bool shouldNotifyOnSync(EventAnnouncement a, DateTime now) =>
+    a.type != null && a.notify && relevantForNotification(a.gregorianDate, now);
 
 class AnnouncementsNotifier extends AsyncNotifier<List<EventAnnouncement>> {
   final AnnouncementsStore _store = AnnouncementsStore();
@@ -28,12 +36,26 @@ class AnnouncementsNotifier extends AsyncNotifier<List<EventAnnouncement>> {
   @override
   Future<List<EventAnnouncement>> build() => _store.load();
 
-  /// يجلب إعلانات الدولة، يخزّنها، ويُظهر تنبيهاً للجديد ضمن نافذة الأهمية.
-  /// (يُسكِت الإعلانات القديمة عند أول مزامنة لتفادي الإزعاج.)
+  /// يعيد قراءة المخزَّن (بعد عودة التطبيق من الخلفية): معالج FCM الخلفي يعمل في
+  /// عزلة مستقلة، فما خزّنه من تثبيتات لا يصل الواجهة إلا بإعادة القراءة.
+  Future<void> reloadFromStore() async {
+    state = AsyncData(await _store.load());
+  }
+
+  /// عند تغيير الدولة: تُمسح تثبيتات الدولة السابقة (لا تخصّ تقويم الجديدة) ثم
+  /// تُجلب إعلانات الجديدة.
+  Future<SyncResult> switchCountry() async {
+    await _store.clear();
+    state = const AsyncData([]);
+    return syncNow();
+  }
+
+  /// يجلب إعلانات الدولة، يخزّنها، ويُظهر تنبيهاً للجديد المسمّى ضمن نافذة الأهمية.
+  /// التثبيتات الصامتة تُخزَّن وتصحّح التقويم دون تنبيه.
   Future<SyncResult> syncNow() async {
     final s = ref.read(settingsProvider);
     if (s.countryCode == null) {
-      return const SyncResult(false, 'حدّد الدولة أولاً', 0);
+      return SyncResult(false, tr.syncPickCountry, 0);
     }
     try {
       final api = AnnouncementsApi(kAnnouncementsBaseUrl);
@@ -46,11 +68,12 @@ class AnnouncementsNotifier extends AsyncNotifier<List<EventAnnouncement>> {
       final now = DateTime.now();
       var shown = 0;
       for (final a in fresh) {
-        if (relevantForNotification(a.gregorianDate, now)) {
+        final type = a.type;
+        if (type != null && shouldNotifyOnSync(a, now)) {
           await NotificationService.show(
-            a.key.hashCode & 0x7fffffff,
-            a.type.arabicName,
-            _body(a),
+            NotificationService.idFor(a.key),
+            eventName(type),
+            eventNotificationBody(type),
           );
           shown++;
         }
@@ -62,68 +85,25 @@ class AnnouncementsNotifier extends AsyncNotifier<List<EventAnnouncement>> {
       state = AsyncData(incoming);
       await DiagLog.add('sync',
           'نجحت المزامنة (${s.countryCode}) — ${incoming.length} إعلان، تنبيهات جديدة: $shown');
+      for (final issue in buildAnchoring(incoming).issues) {
+        await DiagLog.add('anchor', issue);
+      }
       return SyncResult(
         true,
-        shown > 0 ? 'تنبيهات جديدة: $shown' : 'تمت المزامنة — لا جديد',
+        shown > 0
+            ? tr.syncNewAlerts(localDigits('$shown'))
+            : tr.syncNothingNew,
         shown,
       );
     } catch (e) {
       await DiagLog.add('sync', 'تعذّرت المزامنة: $e');
-      return SyncResult(false, 'تعذّرت المزامنة: $e', 0);
+      return SyncResult(false, tr.syncFailed('$e'), 0);
     }
   }
 
-  /// يطبّق اقتراح معايرة التقويم: يضبط التعديل، ويعلّمه كمُعالَج، ويسجّل.
-  /// [auto] يفعّل «التصحيح التلقائي مستقبلاً».
-  Future<void> applyCalibration(CalibrationSuggestion s,
-      {bool auto = false}) async {
-    final settings = ref.read(settingsProvider.notifier);
-    settings.setHijriAdjust(s.suggestedAdjust);
-    if (auto) settings.setAutoCalibrate(true);
-    await _store.markCalibrationHandled(s.handledKey);
-    ref.invalidate(calibrationHandledProvider);
-    await DiagLog.add(
-      'calibrate',
-      'طُبّق تعديل التقويم ${s.currentAdjust}→${s.suggestedAdjust} '
-          '(${s.announcement.type.id})${auto ? ' [تلقائي مفعّل]' : ''}',
-    );
-  }
-
-  /// يتجاهل اقتراح المعايرة (يعلّمه كمُعالَج فلا يُسأل عنه ثانيةً).
-  Future<void> dismissCalibration(CalibrationSuggestion s) async {
-    await _store.markCalibrationHandled(s.handledKey);
-    ref.invalidate(calibrationHandledProvider);
-    await DiagLog.add('calibrate',
-        'تُجوهِل تعديل التقويم ${s.currentAdjust}→${s.suggestedAdjust} (${s.announcement.type.id})');
-  }
-
-  String _body(EventAnnouncement a) {
-    switch (a.type) {
-      case IslamicEventType.hijriNewYear:
-        return 'ثبتت غُرّة محرّم — كل عام وأنتم بخير.';
-      case IslamicEventType.ramadan:
-        return 'ثبت دخول شهر رمضان المبارك — رمضان كريم.';
-      case IslamicEventType.eidFitr:
-        return 'ثبت شوّال وعيد الفطر — عيد مبارك.';
-      case IslamicEventType.dhulHijjah:
-        return 'دخل شهر ذي الحجة — عرفة وعيد الأضحى قريباً.';
-    }
-  }
 }
 
 final announcementsProvider =
     AsyncNotifierProvider<AnnouncementsNotifier, List<EventAnnouncement>>(
   AnnouncementsNotifier.new,
 );
-
-/// مفاتيح اقتراحات المعايرة المُعالَجة (يُبطَل بعد كل تطبيق/تجاهل).
-final calibrationHandledProvider = FutureProvider<Set<String>>((ref) async {
-  return AnnouncementsStore().calibrationHandledKeys();
-});
-
-/// معطّل: صار تثبيت الأشهر من الإعلانات (عبر جدول أم القرى في [hijriAdjustmentsProvider])
-/// يصحّح التقويم مباشرةً وعلى مستوى التطبيق كله، فأُلغيت المعايرة العامة (±يوم) هنا
-/// لتفادي التصحيح المزدوج. تبقى منطق [pickPendingSuggestion] وإزاحة `hijriAdjust`
-/// اليدوية متاحين كاحتياطي.
-final pendingCalibrationProvider =
-    Provider<CalibrationSuggestion?>((ref) => null);

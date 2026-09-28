@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- مقلِّص الموارد في نسخة الإصدار يحذف ما لا يُشار إليه في الكود، ونصوص notif_*
+     يطلبها FCM بالاسم وقت التشغيل (title_loc_key) — فبدون هذا يعرض النصّ الاحتياطي. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@string/notif_*" />

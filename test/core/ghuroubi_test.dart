@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timer_grobi/core/ghuroubi_clock.dart';
 import 'package:timer_grobi/core/ghuroubi_date.dart';
+import 'package:timer_grobi/models/day_times.dart';
 
 void main() {
   // أوقات غروب/شروق ثابتة لاختبار محدّد.
@@ -93,6 +94,34 @@ void main() {
       final plus = ghuroubiHijri(DateTime(2025, 6, 15), 1);
       // فرق يوم ميلادي = فرق يوم هجري (ضمن نفس الشهر هنا)
       expect(plus.hDay - base.hDay, anyOf(1, -29, -28));
+    });
+  });
+
+  group('اسم اليوم الغروبي', () {
+    // الخميس 2026-10-01: فجر 04:40، مغرب 18:00.
+    DayTimes thursday() => DayTimes(
+          fajr: DateTime(2026, 10, 1, 4, 40),
+          sunrise: DateTime(2026, 10, 1, 6),
+          dhuhr: DateTime(2026, 10, 1, 12),
+          asr: DateTime(2026, 10, 1, 15, 20),
+          maghrib: DateTime(2026, 10, 1, 18),
+          isha: DateTime(2026, 10, 1, 19, 30),
+        );
+
+    test('نهار الخميس ⇒ «الخميس»', () {
+      expect(ghuroubiDayName(DateTime(2026, 10, 1, 12), thursday()), 'الخميس');
+    });
+
+    test('بعد مغرب الخميس ⇒ «ليلة الجمعة» (بجوار تاريخ الجمعة الغروبي)', () {
+      expect(ghuroubiDayName(DateTime(2026, 10, 1, 18), thursday()),
+          'ليلة الجمعة');
+      expect(ghuroubiDayName(DateTime(2026, 10, 1, 23, 30), thursday()),
+          'ليلة الجمعة');
+    });
+
+    test('قبل فجر الخميس ⇒ «ليلة الخميس»', () {
+      expect(ghuroubiDayName(DateTime(2026, 10, 1, 2), thursday()),
+          'ليلة الخميس');
     });
   });
 }

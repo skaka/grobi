@@ -2,12 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/app_language.dart';
 import '../core/format_utils.dart';
+import '../l10n/l10n.dart';
 import '../services/announcements_api.dart' show kAnnouncementsBaseUrl;
 import '../theme.dart';
 
 /// بريد التواصل للملاحظات والدعم (يُؤكَّد/يُعدّل حسب الحاجة).
 const String _contactEmail = 'info@misoor.com';
+
+/// سياسة الخصوصية (صفحة ثنائية اللغة على موقع التطبيق؛ `#en` للقسم الإنجليزي).
+String get _privacyUrl =>
+    '$kAnnouncementsBaseUrl/privacy.html${AppLanguage.isArabic ? '' : '#en'}';
 
 /// صفحة «عن التطبيق»: الشعار والاسم والوصف والإصدار ورقم البناء وروابط التواصل.
 class AboutScreen extends StatelessWidget {
@@ -15,6 +21,7 @@ class AboutScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Container(
       decoration: BoxDecoration(gradient: backgroundGradient(false)),
       child: Scaffold(
@@ -24,8 +31,8 @@ class AboutScreen extends StatelessWidget {
           elevation: 0,
           scrolledUnderElevation: 0,
           iconTheme: const IconThemeData(color: AppColors.onDark),
-          title: const Text('عن التطبيق',
-              style: TextStyle(
+          title: Text(l10n.aboutTitle,
+              style: const TextStyle(
                   color: AppColors.gold, fontWeight: FontWeight.w700)),
         ),
         body: SafeArea(
@@ -55,9 +62,9 @@ class AboutScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Center(
-                      child: Text('التوقيت الغروبي',
-                          style: TextStyle(
+                    Center(
+                      child: Text(l10n.appTitle,
+                          style: const TextStyle(
                               color: AppColors.onDark,
                               fontSize: 22,
                               fontWeight: FontWeight.w700)),
@@ -67,42 +74,46 @@ class AboutScreen extends StatelessWidget {
                       child: Text(
                         info == null
                             ? '…'
-                            : 'الإصدار ${toArabicDigits(info.version)}'
-                                '  •  بناء ${toArabicDigits(info.buildNumber)}',
+                            : l10n.versionBuild(localDigits(info.version),
+                                localDigits(info.buildNumber)),
                         style: const TextStyle(color: AppColors.muted),
                       ),
                     ),
                     const SizedBox(height: 24),
                     _card(
-                      child: const Text(
-                        'التوقيت الغروبي تطبيق يعرض الساعة الغروبية والتقويم '
-                        'الهجري ومواقيت الصلاة بحساب فلكي دقيق يراعي موقعك '
-                        'وارتفاعك عن سطح البحر، مع اتجاه القبلة والمناسبات '
-                        'الإسلامية.',
-                        style: TextStyle(
+                      child: Text(
+                        l10n.aboutDescription,
+                        style: const TextStyle(
                             color: AppColors.onDark, height: 1.7, fontSize: 14),
                       ),
                     ),
                     const SizedBox(height: 16),
-                    _sectionTitle('التواصل'),
+                    _sectionTitle(l10n.contactSection),
                     _linkCard(
                       icon: Icons.language,
-                      label: 'الموقع الإلكتروني',
+                      label: l10n.website,
                       value: 'grobi.misoor.com',
                       onTap: () => _launch(Uri.parse(kAnnouncementsBaseUrl)),
                     ),
                     const SizedBox(height: 10),
                     _linkCard(
                       icon: Icons.email_outlined,
-                      label: 'تواصل معنا',
+                      label: l10n.contactUs,
                       value: _contactEmail,
                       onTap: () =>
                           _launch(Uri(scheme: 'mailto', path: _contactEmail)),
                     ),
+                    const SizedBox(height: 10),
+                    _linkCard(
+                      icon: Icons.privacy_tip_outlined,
+                      label: l10n.privacyPolicy,
+                      value: 'grobi.misoor.com/privacy.html',
+                      onTap: () => _launch(Uri.parse(_privacyUrl)),
+                    ),
                     if (info != null) ...[
                       const SizedBox(height: 16),
-                      _sectionTitle('معلومات فنية'),
-                      _infoCard('المعرّف', info.packageName),
+                      _sectionTitle(l10n.technicalInfo),
+                      _infoCard(l10n.identifier, info.packageName),
                     ],
                   ],
                 ),

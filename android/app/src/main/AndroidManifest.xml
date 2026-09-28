@@ -1,9 +1,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- مزامنة الإعلانات وقائمة الدول وFCM. كان يصل فقط عبر دمج بيان Firebase. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <!-- مواقع GPS لحساب المواقيت والتوقيت الشمسي والارتفاع -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- النسخ الاحتياطي السحابي معطّل: بيانات التطبيق (آخر موقع، الإعدادات، سجل
+         التشخيص) تبقى على الجهاز وحده، كما تنصّ سياسة الخصوصية. -->
     <application
-        android:label="التوقيت الغروبي"
+        android:label="@string/app_name"
+        android:localeConfig="@xml/locales_config"
+        android:allowBackup="false"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -28,6 +34,18 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- رسائل FCM التي يعرضها النظام (التطبيق في الخلفية) تذهب إلى قناة المناسبات
+             (يُنشئها NotificationService عند الإقلاع) لا إلى «متفرقات»، وبأيقونة
+             أحادية اللون لا مربع أبيض. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="islamic_events" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_grobi" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/grobi_gold" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

@@ -1,0 +1,271 @@
+{
+  "@@locale": "ar",
+  "appTitle": "التوقيت الغروبي",
+  "tabClock": "الساعة",
+  "tabPrayers": "المواقيت",
+  "tabQibla": "القبلة",
+  "tabCalendar": "التقويم",
+  "tabEvents": "المناسبات",
+  "settingsTooltip": "الإعدادات",
+  "locationRationaleTitle": "موقعك لحساب المواقيت",
+  "locationRationaleBody": "يحسب التطبيق مواقيت الصلاة ووقت الغروب واتجاه القبلة لموقعك بالضبط. يبقى موقعك على جهازك ولا يُرسَل إلى أي خادم.\n\nويمكنك بدلاً من ذلك اختيار مدينتك يدوياً.",
+  "notNow": "ليس الآن",
+  "pickCity": "اختيار مدينة",
+  "allow": "السماح",
+  "solarTime": "التوقيت الزوالي",
+  "civilTime": "التوقيت المدني",
+  "untilNextSunset": "بقي للغروب القادم: {duration}",
+  "@untilNextSunset": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "defaultLocationBanner": "الموقع غير محدّد — تُعرض مواقيت مكة المكرمة. حدّد موقعك لمواقيت مدينتك.",
+  "setLocationShort": "تحديد",
+  "faceNight": "ليل",
+  "faceDay": "نهار",
+  "meccaName": "مكة المكرمة",
+  "sourceFallback": "افتراضي ({city})",
+  "@sourceFallback": {
+    "placeholders": {
+      "city": {
+        "type": "String"
+      }
+    }
+  },
+  "sourceGps": "موقع GPS",
+  "sourceManual": "موقع يدوي",
+  "prayerTimesTitle": "مواقيت الصلاة",
+  "nextPrayer": "الصلاة القادمة: {name}",
+  "@nextPrayer": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "colGhuroubi": "غروبي",
+  "colZawali": "زوالي",
+  "colCivil": "مدني",
+  "prayerFajr": "الفجر",
+  "prayerSunrise": "الشروق",
+  "prayerDhuhr": "الظهر",
+  "prayerAsr": "العصر",
+  "prayerMaghrib": "المغرب",
+  "prayerIsha": "العشاء",
+  "qiblaTitle": "القبلة",
+  "noMagnetometer": "جهازك لا يحتوي حسّاساً مغناطيسياً للبوصلة، لذا نعرض اتجاه القبلة رقمياً (الشمال للأعلى).",
+  "facingQibla": "أنت تواجه القبلة",
+  "turnDevice": "أدِر جهازك حتى يشير السهم للأعلى",
+  "magneticNorthNote": "اتجاه مغناطيسي — قد يختلف بضع درجات عن الشمال الحقيقي",
+  "trueNorthNote": "الشمال الحقيقي • الانحراف المغناطيسي {degrees}° {direction}",
+  "@trueNorthNote": {
+    "placeholders": {
+      "degrees": {
+        "type": "String"
+      },
+      "direction": {
+        "type": "String"
+      }
+    }
+  },
+  "directionEast": "شرقاً",
+  "directionWest": "غرباً",
+  "northUp": "الشمال للأعلى ↑",
+  "calibrationHint": "تشويش مغناطيسي: ابتعد عن المعادن والمغانط (كغطاء الجوال)، ثم حرّك الجهاز في الهواء على شكل الرقم ٨ لمعايرة البوصلة.",
+  "qiblaDirection": "اتجاه القبلة",
+  "degreesFromNorth": "{degrees}° من الشمال",
+  "@degreesFromNorth": {
+    "placeholders": {
+      "degrees": {
+        "type": "String"
+      }
+    }
+  },
+  "distanceToKaaba": "المسافة إلى الكعبة",
+  "kilometers": "{value} كم",
+  "@kilometers": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "setYourLocation": "حدّد موقعك",
+  "changeMyLocation": "تغيير موقعي",
+  "calendarHint": "الرقم الكبير: هجري • الصغير: ميلادي — استخدم الأسهم لتغيير الشهر",
+  "eventsTitle": "المناسبات والإعلانات",
+  "eventsSubtitle": "إعلانات دخول رمضان والأعياد والسنة الهجرية حسب دولتك",
+  "syncing": "جارٍ المزامنة…",
+  "syncNow": "مزامنة الإعلانات الآن",
+  "errorWith": "خطأ: {error}",
+  "@errorWith": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "noAnnouncements": "لا توجد إعلانات بعد — اختر الدولة من الإعدادات ثم زامِن.",
+  "syncPickCountry": "حدّد الدولة أولاً",
+  "syncNewAlerts": "تنبيهات جديدة: {count}",
+  "@syncNewAlerts": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "syncNothingNew": "تمت المزامنة — لا جديد",
+  "syncFailed": "تعذّرت المزامنة: {error}",
+  "@syncFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "eventHijriNewYear": "رأس السنة الهجرية",
+  "eventShaban": "دخول شعبان",
+  "eventRamadan": "دخول رمضان",
+  "eventEidFitr": "عيد الفطر",
+  "eventDhulHijjah": "دخول ذي الحجة",
+  "monthStart": "بداية {month}",
+  "@monthStart": {
+    "placeholders": {
+      "month": {
+        "type": "String"
+      }
+    }
+  },
+  "notifBodyHijriNewYear": "ثبتت غُرّة محرّم — كل عام وأنتم بخير.",
+  "notifBodyShaban": "دخل شهر شعبان — استعداداً لرمضان.",
+  "notifBodyRamadan": "ثبت دخول شهر رمضان المبارك — رمضان كريم.",
+  "notifBodyEidFitr": "ثبت شوّال وعيد الفطر — عيد مبارك.",
+  "notifBodyDhulHijjah": "دخل شهر ذي الحجة — عرفة وعيد الأضحى قريباً.",
+  "channelName": "المناسبات الإسلامية",
+  "channelDescription": "إشعارات دخول رمضان والأعياد والسنة الهجرية",
+  "settingsTitle": "الإعدادات",
+  "sectionLocation": "الموقع",
+  "change": "تغيير",
+  "sectionPrayerTimes": "المواقيت",
+  "calculationMethod": "طريقة الحساب",
+  "manualHijriAdjust": "تعديل يدوي للتاريخ الهجري",
+  "doubleCorrectionWarning": "تقويم دولتك مُصحَّح من إعلانات الرؤية، وهذا التعديل يُضاف فوقه فيُزيح التاريخ مرّتين.",
+  "reset": "تصفير",
+  "manualAdjustHint": "احتياطي: اتركه صفراً ما دامت دولتك محدّدة في «المناسبات».",
+  "sectionEvents": "المناسبات",
+  "country": "الدولة",
+  "choose": "اختر",
+  "sectionAdvanced": "متقدّم",
+  "horizonTitle": "الارتفاع فوق الأفق المحيط",
+  "horizonDescription": "لمن يطلّ على أفق منخفض (جبل فوق البحر). يؤخّر المغرب ويقدّم الشروق — اتركه معطّلاً لمطابقة أم القرى.",
+  "off": "معطّل",
+  "horizonDialogTitle": "الارتفاع فوق الأفق المحيط (متر)",
+  "horizonDialogHint": "مثال: 300 — لا ارتفاع المدينة عن البحر",
+  "turnOff": "تعطيل",
+  "save": "حفظ",
+  "sectionInfo": "معلومات",
+  "aboutApp": "عن التطبيق",
+  "language": "اللغة",
+  "languageDevice": "لغة الجهاز",
+  "meters": "{value} م",
+  "@meters": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "methodUmmAlQura": "أم القرى (السعودية)",
+  "methodMuslimWorldLeague": "رابطة العالم الإسلامي",
+  "methodEgyptian": "الهيئة المصرية العامة للمساحة",
+  "methodKarachi": "جامعة العلوم الإسلامية (كراتشي)",
+  "methodNorthAmerica": "أمريكا الشمالية (ISNA)",
+  "methodDubai": "دبي",
+  "methodQatar": "قطر",
+  "methodKuwait": "الكويت",
+  "methodMoonsighting": "لجنة رؤية الهلال",
+  "methodSingapore": "سنغافورة",
+  "methodTurkey": "تركيا (ديانت)",
+  "methodTehran": "طهران",
+  "pickerTitle": "تحديد الموقع",
+  "currentLocation": "الحالي: {label}",
+  "@currentLocation": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "useGps": "استخدام موقعي الحالي (GPS)",
+  "orPickCityIn": "أو اختر مدينة في",
+  "noCitiesForCountry": "لا مدن مضمَّنة لهذه الدولة بعد — أدخل الإحداثيات يدوياً.",
+  "enterCoordinates": "إدخال الإحداثيات يدوياً",
+  "openAppSettings": "الإعدادات",
+  "turnOn": "تفعيل",
+  "coordinatesTitle": "الإحداثيات",
+  "latitudeLabel": "خط العرض (شمال +)",
+  "longitudeLabel": "خط الطول (شرق +)",
+  "latitudeHint": "مثال: 24.7136",
+  "longitudeHint": "مثال: 46.6753",
+  "latitudeRange": "خط العرض بين −٩٠ و٩٠",
+  "longitudeRange": "خط الطول بين −١٨٠ و١٨٠",
+  "cancel": "إلغاء",
+  "gpsServiceDisabled": "خدمة الموقع متوقّفة في الجهاز — فعّلها أو اختر مدينتك.",
+  "gpsDenied": "لم يُمنح إذن الموقع — يمكنك اختيار مدينتك يدوياً.",
+  "gpsDeniedForever": "إذن الموقع مرفوض نهائياً — فعّله من إعدادات التطبيق أو اختر مدينتك.",
+  "gpsUnavailable": "تعذّر تحديد الموقع الآن — حاول لاحقاً أو اختر مدينتك.",
+  "aboutTitle": "عن التطبيق",
+  "versionBuild": "الإصدار {version}  •  بناء {build}",
+  "@versionBuild": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      },
+      "build": {
+        "type": "String"
+      }
+    }
+  },
+  "aboutDescription": "التوقيت الغروبي تطبيق يعرض الساعة الغروبية والتقويم الهجري ومواقيت الصلاة بحساب فلكي دقيق لموقعك، مع اتجاه القبلة والمناسبات الإسلامية.",
+  "contactSection": "التواصل",
+  "website": "الموقع الإلكتروني",
+  "contactUs": "تواصل معنا",
+  "privacyPolicy": "سياسة الخصوصية",
+  "technicalInfo": "معلومات فنية",
+  "identifier": "المعرّف",
+  "gregorianDateLabel": "التاريخ الميلادي",
+  "hijriDateLabel": "التاريخ الهجري",
+  "outOfRange": "خارج المدى المدعوم",
+  "converterTitle": "تحويل التاريخ",
+  "gregToHijri": "ميلادي إلى هجري",
+  "hijriToGreg": "هجري إلى ميلادي",
+  "durationTitle": "حساب المدة / العمر",
+  "fromLabel": "من",
+  "toLabel": "إلى",
+  "setToToday": "اجعل «إلى» اليوم",
+  "gregorianCalendar": "ميلادي",
+  "hijriCalendar": "هجري",
+  "totalDaysWeeks": "الإجمالي: {days} يوم • {weeks} أسبوع",
+  "@totalDaysWeeks": {
+    "placeholders": {
+      "days": {
+        "type": "String"
+      },
+      "weeks": {
+        "type": "String"
+      }
+    }
+  },
+  "unitYears": "سنة",
+  "unitMonths": "شهر",
+  "unitDays": "يوم",
+  "pickHijriDate": "اختر التاريخ الهجري",
+  "dayHeader": "اليوم",
+  "monthHeader": "الشهر",
+  "yearHeader": "السنة",
+  "confirm": "تأكيد"
+}

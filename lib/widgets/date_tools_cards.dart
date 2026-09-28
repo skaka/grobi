@@ -4,6 +4,7 @@ import 'package:hijri/hijri_calendar.dart';
 
 import '../core/date_calc.dart';
 import '../core/format_utils.dart';
+import '../l10n/l10n.dart';
 import '../theme.dart';
 
 // ملاحظة: التحويل هنا «هجري خام» (تقويم أم القرى في الحزمة دون تعديلات الرؤية)،
@@ -201,7 +202,7 @@ class _HijriConverterCardState extends State<HijriConverterCard> {
     }
   }
 
-  String _weekdayLine(DateTime d) => weekdayAr(d.weekday);
+  String _weekdayLine(DateTime d) => weekdayName(d.weekday);
 
   @override
   Widget build(BuildContext context) {
@@ -212,37 +213,35 @@ class _HijriConverterCardState extends State<HijriConverterCard> {
     String resultMain;
     String resultSub;
 
+    final l10n = context.l10n;
     try {
       if (_gregToHijri) {
-        sourceLabel = 'التاريخ الميلادي';
-        sourceValue = toArabicDigits(
-            '${_greg.day} ${gregorianMonthAr(_greg.month)} ${_greg.year} م');
+        sourceLabel = l10n.gregorianDateLabel;
+        sourceValue = formatGregorianDate(_greg);
         onPickSource = _pickGregorian;
         final h = HijriCalendar.fromDate(_greg);
-        resultMain = toArabicDigits(
-            '${h.hDay} ${hijriMonthAr(h.hMonth)} ${h.hYear} هـ');
+        resultMain = formatHijriDate(h.hDay, h.hMonth, h.hYear);
         resultSub = _weekdayLine(_greg);
       } else {
-        sourceLabel = 'التاريخ الهجري';
-        sourceValue =
-            toArabicDigits('$_hd ${hijriMonthAr(_hm)} $_hy هـ');
+        sourceLabel = l10n.hijriDateLabel;
+        sourceValue = formatHijriDate(_hd, _hm, _hy);
         onPickSource = _pickHijri;
         final g = HijriCalendar().hijriToGregorian(_hy, _hm, _hd);
-        resultMain = toArabicDigits(
-            '${g.day} ${gregorianMonthAr(g.month)} ${g.year} م');
+        resultMain = formatGregorianDate(g);
         resultSub = _weekdayLine(g);
       }
     } catch (_) {
-      sourceLabel = _gregToHijri ? 'التاريخ الميلادي' : 'التاريخ الهجري';
+      sourceLabel =
+          _gregToHijri ? l10n.gregorianDateLabel : l10n.hijriDateLabel;
       sourceValue = '—';
       onPickSource = _gregToHijri ? _pickGregorian : _pickHijri;
-      resultMain = 'خارج المدى المدعوم';
-      resultSub = '١٣٥٦ – ١٥٠٠ هـ';
+      resultMain = l10n.outOfRange;
+      resultSub = localDigits('$_minHijriYear – $_maxHijriYear $hijriEra');
     }
 
     return _ToolCard(
       icon: Icons.swap_horiz_rounded,
-      title: 'تحويل التاريخ',
+      title: l10n.converterTitle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -285,8 +284,9 @@ class _DirectionToggle extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _segment('ميلادي إلى هجري', gregToHijri, () => onChanged(true)),
-          _segment('هجري إلى ميلادي', !gregToHijri, () => onChanged(false)),
+          _segment(context.l10n.gregToHijri, gregToHijri, () => onChanged(true)),
+          _segment(
+              context.l10n.hijriToGreg, !gregToHijri, () => onChanged(false)),
         ],
       ),
     );
@@ -415,15 +415,15 @@ class _DateDifferenceCardState extends State<DateDifferenceCard> {
     });
   }
 
-  String _fmtG(DateTime d) =>
-      toArabicDigits('${d.day} ${gregorianMonthAr(d.month)} ${d.year}');
+  String _fmtG(DateTime d) => formatGregorianDate(d, withEra: false);
 
   @override
   Widget build(BuildContext context) {
     final r = durationBetween(_from, _to);
+    final l10n = context.l10n;
     return _ToolCard(
       icon: Icons.hourglass_bottom_rounded,
-      title: 'حساب المدة / العمر',
+      title: l10n.durationTitle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -431,7 +431,7 @@ class _DateDifferenceCardState extends State<DateDifferenceCard> {
             children: [
               Expanded(
                 child: _DateField(
-                  label: 'من',
+                  label: l10n.fromLabel,
                   value: _fmtG(_from),
                   onTap: () => _pick(true),
                 ),
@@ -439,7 +439,7 @@ class _DateDifferenceCardState extends State<DateDifferenceCard> {
               const SizedBox(width: 10),
               Expanded(
                 child: _DateField(
-                  label: 'إلى',
+                  label: l10n.toLabel,
                   value: _fmtG(_to),
                   onTap: () => _pick(false),
                 ),
@@ -448,7 +448,7 @@ class _DateDifferenceCardState extends State<DateDifferenceCard> {
           ),
           const SizedBox(height: 8),
           Align(
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerEnd,
             child: TextButton.icon(
               onPressed: () {
                 final now = DateTime.now();
@@ -457,14 +457,14 @@ class _DateDifferenceCardState extends State<DateDifferenceCard> {
               },
               icon: const Icon(Icons.today_rounded,
                   size: 16, color: AppColors.gold),
-              label: const Text('اجعل «إلى» اليوم',
-                  style: TextStyle(fontSize: 12, color: AppColors.gold)),
+              label: Text(l10n.setToToday,
+                  style: const TextStyle(fontSize: 12, color: AppColors.gold)),
             ),
           ),
           const SizedBox(height: 6),
-          _DiffResult(diff: r.gregorian, calendarLabel: 'ميلادي'),
+          _DiffResult(diff: r.gregorian, calendarLabel: l10n.gregorianCalendar),
           const SizedBox(height: 10),
-          _DiffResult(diff: r.hijri, calendarLabel: 'هجري'),
+          _DiffResult(diff: r.hijri, calendarLabel: l10n.hijriCalendar),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
@@ -473,8 +473,8 @@ class _DateDifferenceCardState extends State<DateDifferenceCard> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              toArabicDigits(
-                  'الإجمالي: ${r.totalDays} يوم • ${r.totalWeeks} أسبوع'),
+              l10n.totalDaysWeeks(
+                  localDigits('${r.totalDays}'), localDigits('${r.totalWeeks}')),
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 13, color: AppColors.onDark),
             ),
@@ -512,9 +512,9 @@ class _DiffResult extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 10),
-        Expanded(child: _cell(diff.years, 'سنة')),
-        Expanded(child: _cell(diff.months, 'شهر')),
-        Expanded(child: _cell(diff.days, 'يوم')),
+        Expanded(child: _cell(diff.years, context.l10n.unitYears)),
+        Expanded(child: _cell(diff.months, context.l10n.unitMonths)),
+        Expanded(child: _cell(diff.days, context.l10n.unitDays)),
       ],
     );
   }
@@ -523,7 +523,7 @@ class _DiffResult extends StatelessWidget {
     return Column(
       children: [
         Text(
-          toArabicDigits('$value'),
+          localDigits('$value'),
           style: const TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w800,
@@ -610,10 +610,10 @@ class _HijriPickerSheetState extends State<_HijriPickerSheet> {
               ),
             ),
           ),
-          const Text(
-            'اختر التاريخ الهجري',
+          Text(
+            context.l10n.pickHijriDate,
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
               color: AppColors.gold,
@@ -621,10 +621,10 @@ class _HijriPickerSheetState extends State<_HijriPickerSheet> {
           ),
           const SizedBox(height: 12),
           Row(
-            children: const [
-              Expanded(child: _WheelHeader('اليوم')),
-              Expanded(child: _WheelHeader('الشهر')),
-              Expanded(child: _WheelHeader('السنة')),
+            children: [
+              Expanded(child: _WheelHeader(context.l10n.dayHeader)),
+              Expanded(child: _WheelHeader(context.l10n.monthHeader)),
+              Expanded(child: _WheelHeader(context.l10n.yearHeader)),
             ],
           ),
           SizedBox(
@@ -635,7 +635,7 @@ class _HijriPickerSheetState extends State<_HijriPickerSheet> {
                   child: _Wheel(
                     itemCount: maxDay,
                     selectedIndex: clampedDay - 1,
-                    labelBuilder: (i) => toArabicDigits('${i + 1}'),
+                    labelBuilder: (i) => localDigits('${i + 1}'),
                     onChanged: (i) => setState(() => _day = i + 1),
                   ),
                 ),
@@ -643,7 +643,7 @@ class _HijriPickerSheetState extends State<_HijriPickerSheet> {
                   child: _Wheel(
                     itemCount: 12,
                     selectedIndex: _month - 1,
-                    labelBuilder: (i) => hijriMonthAr(i + 1),
+                    labelBuilder: (i) => hijriMonthName(i + 1),
                     onChanged: (i) => setState(() => _month = i + 1),
                   ),
                 ),
@@ -652,7 +652,7 @@ class _HijriPickerSheetState extends State<_HijriPickerSheet> {
                     itemCount: _maxHijriYear - _minHijriYear + 1,
                     selectedIndex: _year - _minHijriYear,
                     labelBuilder: (i) =>
-                        toArabicDigits('${_minHijriYear + i}'),
+                        localDigits('${_minHijriYear + i}'),
                     onChanged: (i) =>
                         setState(() => _year = _minHijriYear + i),
                   ),
@@ -673,9 +673,9 @@ class _HijriPickerSheetState extends State<_HijriPickerSheet> {
                 final d = _day > _daysInMonth ? _daysInMonth : _day;
                 Navigator.of(context).pop((_year, _month, d));
               },
-              child: const Text('تأكيد',
-                  style:
-                      TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+              child: Text(context.l10n.confirm,
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w700)),
             ),
           ),
         ],

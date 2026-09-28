@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/date_utils.dart';
 import '../core/format_utils.dart';
+import '../l10n/l10n.dart';
 import '../models/day_times.dart';
 import '../providers/location_provider.dart';
 import '../providers/time_providers.dart';
@@ -17,10 +19,8 @@ class PrayerScreen extends ConsumerWidget {
     final now = ref.watch(minuteTickerProvider);
     final today0 = dateOnly(now);
     final today = ref.watch(prayerDayProvider(today0));
-    final yesterday =
-        ref.watch(prayerDayProvider(today0.subtract(const Duration(days: 1))));
-    final tomorrow =
-        ref.watch(prayerDayProvider(today0.add(const Duration(days: 1))));
+    final yesterday = ref.watch(prayerDayProvider(addDays(today0, -1)));
+    final tomorrow = ref.watch(prayerDayProvider(addDays(today0, 1)));
     final loc = ref.watch(locationProvider);
 
     final next = _nextPrayer(now, today, tomorrow);
@@ -30,9 +30,9 @@ class PrayerScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('مواقيت الصلاة',
+          Text(context.l10n.prayerTimesTitle,
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                   fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.gold)),
           const SizedBox(height: 12),
           _PrayerCountdown(next),
@@ -65,8 +65,7 @@ class PrayerScreen extends ConsumerWidget {
     return _NextPrayer(PrayerKind.fajr, tomorrow.fajr); // فجر الغد
   }
 
-  bool _isToday(DateTime t, DateTime today0) =>
-      dateOnly(t) == today0;
+  bool _isToday(DateTime t, DateTime today0) => isSameDate(t, today0);
 }
 
 class _NextPrayer {
@@ -97,7 +96,7 @@ class _PrayerCountdown extends ConsumerWidget {
       ),
       child: Column(
         children: [
-          Text('الصلاة القادمة: ${next.kind.arabicName}',
+          Text(context.l10n.nextPrayer(prayerName(next.kind)),
               style: const TextStyle(fontSize: 16, color: AppColors.onDark)),
           const SizedBox(height: 4),
           Text(formatDuration(remaining.isNegative ? Duration.zero : remaining),

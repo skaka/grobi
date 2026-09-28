@@ -43,3 +43,25 @@ double distanceToKaabaKm(double latDeg, double lngDeg) {
   final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
   return _earthRadiusKm * c;
 }
+
+/// اتجاه أعلى الجهاز عن الشمال **الحقيقي** من اتجاهه المغناطيسي [magneticDeg]
+/// والانحراف المغناطيسي المحلي [declinationDeg] (شرقاً موجب)، في `[0, 360)`.
+///
+/// البوصلة تقيس المغناطيسي و[qiblaBearing] حقيقي؛ الفرق في المنطقة ٢–٥° (وأكثر
+/// في أطرافها)، فبدون التصحيح قد يُعلَن «تواجه القبلة» والمستخدم منحرف ~٩°.
+double trueHeading(double magneticDeg, double declinationDeg) =>
+    ((magneticDeg + declinationDeg) % 360.0 + 360.0) % 360.0;
+
+/// الزاوية الموقَّعة من اتجاه الجهاز إلى القبلة، في `(−180, 180]` (موجبة = القبلة
+/// إلى اليمين).
+double angleToQibla(double headingDeg, double bearingDeg) {
+  final d = ((bearingDeg - headingDeg) % 360.0 + 360.0) % 360.0;
+  return d > 180.0 ? d - 360.0 : d;
+}
+
+/// شدّة المجال الأرضي بين ~٢٥ و~٦٥ ميكروتسلا في كل مكان؛ ما خرج عن مدى مريح
+/// حولها يعني تشويشاً قريباً (معادن، مغناطيس الغطاء) أو بوصلة تحتاج معايرة.
+bool magneticFieldSuspicious(double x, double y, double z) {
+  final microtesla = math.sqrt(x * x + y * y + z * z);
+  return microtesla < 20.0 || microtesla > 75.0;
+}

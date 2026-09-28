@@ -42,7 +42,7 @@ class CalendarCell extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              toArabicDigits('$hijriDay'),
+              localDigits('$hijriDay'),
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -50,7 +50,7 @@ class CalendarCell extends StatelessWidget {
               ),
             ),
             Text(
-              toArabicDigits('$gregorianDay'),
+              localDigits('$gregorianDay'),
               style: const TextStyle(fontSize: 11, color: AppColors.gold),
             ),
           ],

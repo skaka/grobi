@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- لون خلفية الليل في التطبيق (AppColors.nightTop) — لشاشة الإقلاع بدل الأبيض. -->
+    <color name="grobi_night">#0B1026</color>
+    <!-- ذهبي العلامة (AppColors.gold) — لون أيقونة الإشعار. -->
+    <color name="grobi_gold">#D4A24E</color>
+</resources>

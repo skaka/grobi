@@ -8,7 +8,6 @@ import '../models/islamic_event.dart';
 class AnnouncementsStore {
   static const _kStored = 'announcements.stored';
   static const _kNotified = 'announcements.notified';
-  static const _kCalibrated = 'announcements.calibrated';
 
   Future<List<EventAnnouncement>> load() async {
     final p = await SharedPreferences.getInstance();
@@ -30,6 +29,13 @@ class AnnouncementsStore {
     );
   }
 
+  /// يمسح الإعلانات المخزّنة (عند تغيير الدولة: تثبيتات الدولة السابقة لا تخصّ
+  /// تقويم الجديدة).
+  Future<void> clear() async {
+    final p = await SharedPreferences.getInstance();
+    await p.remove(_kStored);
+  }
+
   /// يدمج إعلاناً واحداً (بمفتاحه) — يُستخدم من معالج الخلفية عند وصول Push.
   Future<void> upsert(EventAnnouncement item) async {
     final current = await load();
@@ -40,33 +46,24 @@ class AnnouncementsStore {
     await saveAll(merged);
   }
 
-  /// مفاتيح اقتراحات المعايرة التي عُولِجت (طُبّقت أو تُجوهِلت) — لتفادي تكرار السؤال.
-  Future<Set<String>> calibrationHandledKeys() async {
-    final p = await SharedPreferences.getInstance();
-    await p.reload();
-    return (p.getStringList(_kCalibrated) ?? const []).toSet();
-  }
-
-  Future<void> markCalibrationHandled(String key) async {
-    final p = await SharedPreferences.getInstance();
-    await p.reload();
-    final set = (p.getStringList(_kCalibrated) ?? const []).toSet()..add(key);
-    await p.setStringList(_kCalibrated, set.toList());
-  }
-
+  /// مفاتيح ما نُبّه عنه. يُعاد التحميل أولاً لأن معالج FCM الخلفي (عزلة مستقلة)
+  /// يعلّم الإعلان منبَّهاً لحظة وصوله.
   Future<Set<String>> notifiedKeys() async {
     final p = await SharedPreferences.getInstance();
+    await p.reload();
     return (p.getStringList(_kNotified) ?? const []).toSet();
   }
 
   Future<void> markNotified(Iterable<String> keys) async {
     final p = await SharedPreferences.getInstance();
+    await p.reload();
     final set = (p.getStringList(_kNotified) ?? const []).toSet()..addAll(keys);
     await p.setStringList(_kNotified, set.toList());
   }
 }
 
-/// منطق نقيّ (قابل للاختبار): الإعلانات التي لم يُنبَّه عنها بعد.
+/// منطق نقيّ (قابل للاختبار): الإعلانات التي لم يُنبَّه عنها بعد — تشمل التثبيتات
+/// الصامتة كي تُعلَّم مع غيرها، والمزامنة لا تعرض منها إلا المسمّاة.
 List<EventAnnouncement> newToNotify(
   List<EventAnnouncement> incoming,
   Set<String> notifiedKeys,

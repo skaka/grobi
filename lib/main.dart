@@ -1,13 +1,15 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hijri/hijri_calendar.dart';
 
+import 'core/app_language.dart';
 import 'firebase_options.dart';
+import 'l10n/l10n.dart';
 import 'providers/announcements_provider.dart';
+import 'providers/settings_provider.dart';
 import 'screens/main_shell.dart';
+import 'services/crash_reporter.dart';
 import 'services/diag_log.dart';
 import 'services/fcm_service.dart';
 import 'services/notification_service.dart';
@@ -15,8 +17,8 @@ import 'theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  // تفعيل أسماء الأشهر الهجرية العربية عالمياً.
-  HijriCalendar.setLocal('ar');
+  // أي خطأ غير ملتقَط من الآن: سجل التشخيص، ثم Crashlytics بعد تهيئة Firebase.
+  CrashReporter.install();
 
   final container = ProviderContainer();
 
@@ -41,12 +43,17 @@ Future<void> _initServicesInBackground(ProviderContainer container) async {
         options: DefaultFirebaseOptions.currentPlatform);
     FirebaseMessaging.onBackgroundMessage(fcmBackgroundHandler);
 
+    // لا طلب أذونات هنا: الموقع يُطلب أولاً من MainShell، والتنبيهات عند اختيار
+    // الدولة — كي لا تتزاحم الطلبات فيُسقطها أندرويد.
     await NotificationService.init();
-    // أذونات FCM + استقبال أمامي (الاشتراك بموضوع الدولة يتم عبر الإعدادات).
+    // استقبال أمامي (الاشتراك بموضوع الدولة يتم عبر الإعدادات).
     await FcmService.init();
-    // وصول Push يحمل إعلان مناسبة (مقدّمة) → إعادة مزامنة لإعادة تقييم المعايرة.
-    FcmService.onAnnouncementPush =
-        () => container.read(announcementsProvider.notifier).syncNow();
+    // وصول Push يحمل إعلان شهر (مقدّمة): التقويم يتصحّح فوراً من المخزَّن، ثم
+    // تُعاد المزامنة مع الخادم.
+    FcmService.onAnnouncementPush = () {
+      final notifier = container.read(announcementsProvider.notifier);
+      notifier.reloadFromStore().then((_) => notifier.syncNow());
+    };
   } catch (e) {
     debugPrint('Services init failed: $e');
     await DiagLog.add('boot', 'فشل تهيئة الخدمات: $e');
@@ -56,22 +63,31 @@ Future<void> _initServicesInBackground(ProviderContainer container) async {
   container.read(announcementsProvider.notifier).syncNow();
 }
 
-class TimerGrobiApp extends StatelessWidget {
+class TimerGrobiApp extends ConsumerWidget {
   const TimerGrobiApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final preferred = ref.watch(settingsProvider.select((s) => s.languageCode));
     return MaterialApp(
-      title: 'التوقيت الغروبي',
+      onGenerateTitle: (context) => context.l10n.appTitle,
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
-      locale: const Locale('ar'),
-      supportedLocales: const [Locale('ar')],
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
+      // اختيار المستخدم، وإلا لغة الجهاز: الإنجليزية لجهاز إنجليزي والعربية لغيره.
+      locale: preferred == null ? null : Locale(preferred),
+      localeResolutionCallback: (device, _) =>
+          Locale(AppLanguage.resolve(null, device?.languageCode)),
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      // لغة الواجهة الفعلية لما لا يملك BuildContext (التنسيق، التنبيهات المحلية).
+      builder: (context, child) {
+        final language = Localizations.localeOf(context).languageCode;
+        if (AppLanguage.code != language) {
+          AppLanguage.code = language;
+          NotificationService.refreshChannel().ignore();
+        }
+        return child!;
+      },
       home: const MainShell(),
     );
   }

@@ -2,23 +2,6 @@
 enum PrayerKind { fajr, sunrise, dhuhr, asr, maghrib, isha }
 
 extension PrayerKindName on PrayerKind {
-  String get arabicName {
-    switch (this) {
-      case PrayerKind.fajr:
-        return 'الفجر';
-      case PrayerKind.sunrise:
-        return 'الشروق';
-      case PrayerKind.dhuhr:
-        return 'الظهر';
-      case PrayerKind.asr:
-        return 'العصر';
-      case PrayerKind.maghrib:
-        return 'المغرب';
-      case PrayerKind.isha:
-        return 'العشاء';
-    }
-  }
-
   /// هل هو صلاة مفروضة (لأغراض العدّاد التنازلي)؟ الشروق ليس صلاة.
   bool get isSalah => this != PrayerKind.sunrise;
 }

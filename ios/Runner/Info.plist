@@ -5,7 +5,7 @@
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>يُستخدم موقعك لحساب مواقيت الصلاة والتوقيت الشمسي الحقيقي والارتفاع عن سطح البحر.</string>
+	<string>يُستخدم موقعك على جهازك فقط لحساب مواقيت الصلاة ووقت الغروب واتجاه القبلة.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
@@ -17,6 +17,11 @@
 	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>ar</string>
+		<string>en</string>
+	</array>
 	<key>CFBundleDisplayName</key>
 	<string>التوقيت الغروبي</string>
 	<key>CFBundleExecutable</key>

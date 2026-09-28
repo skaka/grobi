@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- نصوص النظام بالإنجليزية (جهاز لغته الإنجليزية). المعاملات كما في values/strings.xml. -->
+<resources>
+    <string name="app_name">Ghuroubi Time</string>
+
+    <string name="notif_hijri_new_year_title">🌙 Islamic New Year %3$s AH</string>
+    <string name="notif_hijri_new_year_body">The start of Muharram has been confirmed in %2$s — Happy New Year.</string>
+    <string name="notif_shaban_title">🌙 Sha\'ban has begun</string>
+    <string name="notif_shaban_body">%2$s has announced the start of Sha\'ban — time to prepare for Ramadan.</string>
+    <string name="notif_ramadan_title">🌙 Ramadan confirmed</string>
+    <string name="notif_ramadan_body">%2$s has announced the start of the blessed month of Ramadan — Ramadan Kareem.</string>
+    <string name="notif_eid_fitr_title">🌙 Shawwal confirmed — Eid al-Fitr</string>
+    <string name="notif_eid_fitr_body">%2$s has confirmed the start of Shawwal; Eid al-Fitr is tomorrow — Eid Mubarak.</string>
+    <string name="notif_dhul_hijjah_title">🌙 Dhu al-Hijjah has begun</string>
+    <string name="notif_dhul_hijjah_body">%2$s has announced the start of Dhu al-Hijjah — the Day of Arafah and Eid al-Adha are near.</string>
+</resources>

@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/format_utils.dart';
-import '../core/hijri_calibration.dart';
-import '../models/islamic_event.dart';
+import '../l10n/l10n.dart';
 import '../providers/announcements_provider.dart';
+import '../providers/location_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/time_providers.dart';
-import '../services/notification_service.dart';
+import '../providers/ui_providers.dart';
+import '../services/fcm_service.dart';
 import '../theme.dart';
+import '../widgets/location_picker.dart';
 import 'calendar_screen.dart';
 import 'clock_screen.dart';
 import 'events_screen.dart';
@@ -28,13 +29,71 @@ class _MainShellState extends ConsumerState<MainShell>
   int _index = 0;
   final PageController _pageController = PageController();
 
-  /// مفاتيح الاقتراحات التي عُولِجت في هذه الجلسة (تفادي تكرار الحوار/التطبيق).
-  final Set<String> _handledThisSession = {};
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _askPermissionsInSequence());
+  }
+
+  /// أذونات الإقلاع **بالتتابع**: أندرويد يُسقط كل طلب أذونات متزامن عدا واحداً،
+  /// فكان طلب الموقع يضيع بصمت ويبقى المستخدم على موقع مكة الافتراضي.
+  /// 1) الموقع أولاً مع شرح السبب (مرة لكل تثبيت؛ بعدها يبقى الشريط التنبيهي).
+  /// 2) ثم التنبيهات لمن اختار دولته سابقاً ولم يُسأل بعد.
+  Future<void> _askPermissionsInSequence() async {
+    final location = ref.read(locationProvider.notifier);
+    final settings = ref.read(settingsProvider.notifier);
+    if (await location.shouldExplainPermission() && mounted) {
+      final choice = await _showLocationRationale();
+      await location.markPermissionExplained();
+      if (!mounted) return;
+      if (choice == _LocationChoice.allow) {
+        final message = gpsResultMessage(await location.requestGps());
+        if (message != null && mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(message)));
+        }
+      } else if (choice == _LocationChoice.pickCity) {
+        await showLocationPicker(context);
+      }
+    }
+    await settings.ready;
+    if (!mounted) return;
+    if (ref.read(settingsProvider).countryCode != null) {
+      await FcmService.requestNotificationPermissionOnce();
+    }
+  }
+
+  Future<_LocationChoice?> _showLocationRationale() {
+    final l10n = context.l10n;
+    return showDialog<_LocationChoice>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text(l10n.locationRationaleTitle,
+            style: const TextStyle(color: AppColors.onDark)),
+        content: Text(
+          l10n.locationRationaleBody,
+          style: const TextStyle(color: AppColors.onDark),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, _LocationChoice.later),
+            child: Text(l10n.notNow),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, _LocationChoice.pickCity),
+            child: Text(l10n.pickCity),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, _LocationChoice.allow),
+            child: Text(l10n.allow),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -52,6 +111,8 @@ class _MainShellState extends ConsumerState<MainShell>
     if (state == AppLifecycleState.resumed) {
       second.resume();
       minute.resume();
+      // تثبيتات وصلت عبر FCM والتطبيق في الخلفية خُزّنت من عزلة مستقلة.
+      ref.read(announcementsProvider.notifier).reloadFromStore();
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
       second.pause();
@@ -75,91 +136,13 @@ class _MainShellState extends ConsumerState<MainShell>
     );
   }
 
-  /// يستجيب لاقتراح معايرة التقويم: تطبيق تلقائي أو حوار تأكيد.
-  void _onCalibration(CalibrationSuggestion? s) {
-    if (s == null || _handledThisSession.contains(s.handledKey)) return;
-    _handledThisSession.add(s.handledKey);
-    final notifier = ref.read(announcementsProvider.notifier);
-
-    if (ref.read(settingsProvider).autoCalibrate) {
-      notifier.applyCalibration(s);
-      String adj(int a) => a > 0 ? '+$a' : '$a';
-      NotificationService.show(
-        911,
-        'تصحيح التقويم',
-        'صُحّح التاريخ الهجري تلقائياً إلى ${toArabicDigits(adj(s.suggestedAdjust))} '
-            '(${s.announcement.type.arabicName}).',
-      );
-      return;
-    }
-
-    // حوار تأكيد (يظهر على أي تبويب).
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _showCalibrationDialog(s);
-    });
-  }
-
-  Future<void> _showCalibrationDialog(CalibrationSuggestion s) async {
-    String adj(int a) => a > 0 ? '+$a' : '$a';
-    var auto = false;
-    final apply = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          backgroundColor: AppColors.surface,
-          title: Text('ثبت ${s.announcement.type.arabicName}',
-              style: const TextStyle(color: AppColors.onDark)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'اضبط تعديل التاريخ الهجري من ${toArabicDigits(adj(s.currentAdjust))} '
-                'إلى ${toArabicDigits(adj(s.suggestedAdjust))}؟',
-                style: const TextStyle(color: AppColors.onDark),
-              ),
-              CheckboxListTile(
-                value: auto,
-                onChanged: (v) => setLocal(() => auto = v ?? false),
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                activeColor: AppColors.gold,
-                dense: true,
-                title: const Text('طبّق التصحيحات تلقائياً مستقبلاً',
-                    style: TextStyle(color: AppColors.onDark, fontSize: 13)),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('تجاهل')),
-            FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('تطبيق')),
-          ],
-        ),
-      ),
-    );
-    final notifier = ref.read(announcementsProvider.notifier);
-    if (apply == true) {
-      notifier.applyCalibration(s, auto: auto);
-    } else {
-      notifier.dismissCalibration(s);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     // يُعاد البناء فقط عند تبدّل نهار/ليل (لا كل ثانية).
     final isDaytime = ref.watch(
       ghuroubiNowProvider.select((g) => g.clock.isDaytime),
     );
-
-    ref.listen<CalibrationSuggestion?>(
-      pendingCalibrationProvider,
-      (_, next) => _onCalibration(next),
-    );
+    final l10n = context.l10n;
 
     return Container(
       decoration: BoxDecoration(gradient: backgroundGradient(isDaytime)),
@@ -171,7 +154,7 @@ class _MainShellState extends ConsumerState<MainShell>
           scrolledUnderElevation: 0,
           actions: [
             IconButton(
-              tooltip: 'الإعدادات',
+              tooltip: l10n.settingsTooltip,
               icon: const Icon(Icons.settings_outlined, color: AppColors.gold),
               onPressed: _openSettings,
             ),
@@ -181,7 +164,10 @@ class _MainShellState extends ConsumerState<MainShell>
           top: false,
           child: PageView(
             controller: _pageController,
-            onPageChanged: (i) => setState(() => _index = i),
+            onPageChanged: (i) {
+              setState(() => _index = i);
+              ref.read(activeTabProvider.notifier).state = i;
+            },
             children: _screens,
           ),
         ),
@@ -189,31 +175,31 @@ class _MainShellState extends ConsumerState<MainShell>
           backgroundColor: AppColors.surface.withValues(alpha: 0.92),
           selectedIndex: _index,
           onDestinationSelected: (i) => _pageController.jumpToPage(i),
-          destinations: const [
+          destinations: [
             NavigationDestination(
-              icon: Icon(Icons.access_time_outlined),
-              selectedIcon: Icon(Icons.access_time_filled),
-              label: 'الساعة',
+              icon: const Icon(Icons.access_time_outlined),
+              selectedIcon: const Icon(Icons.access_time_filled),
+              label: l10n.tabClock,
             ),
             NavigationDestination(
-              icon: Icon(Icons.mosque_outlined),
-              selectedIcon: Icon(Icons.mosque),
-              label: 'المواقيت',
+              icon: const Icon(Icons.mosque_outlined),
+              selectedIcon: const Icon(Icons.mosque),
+              label: l10n.tabPrayers,
             ),
             NavigationDestination(
-              icon: Icon(Icons.explore_outlined),
-              selectedIcon: Icon(Icons.explore),
-              label: 'القبلة',
+              icon: const Icon(Icons.explore_outlined),
+              selectedIcon: const Icon(Icons.explore),
+              label: l10n.tabQibla,
             ),
             NavigationDestination(
-              icon: Icon(Icons.calendar_month_outlined),
-              selectedIcon: Icon(Icons.calendar_month),
-              label: 'التقويم',
+              icon: const Icon(Icons.calendar_month_outlined),
+              selectedIcon: const Icon(Icons.calendar_month),
+              label: l10n.tabCalendar,
             ),
             NavigationDestination(
-              icon: Icon(Icons.notifications_outlined),
-              selectedIcon: Icon(Icons.notifications),
-              label: 'المناسبات',
+              icon: const Icon(Icons.notifications_outlined),
+              selectedIcon: const Icon(Icons.notifications),
+              label: l10n.tabEvents,
             ),
           ],
         ),
@@ -221,6 +207,8 @@ class _MainShellState extends ConsumerState<MainShell>
     );
   }
 }
+
+enum _LocationChoice { allow, pickCity, later }
 
 /// غلاف يُبقي صفحة الـ PageView حيّة عند التنقّل عنها (يحفظ حالتها الداخلية).
 class _KeepAlivePage extends StatefulWidget {

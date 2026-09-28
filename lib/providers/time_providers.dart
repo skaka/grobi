@@ -3,14 +3,13 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hijri/hijri_calendar.dart';
 
-import '../core/ghuroubi_clock.dart';
+import '../core/date_utils.dart';
 import '../core/ghuroubi_date.dart';
 import '../core/prayer_service.dart';
 import '../core/solar_time.dart';
 import '../core/umm_alqura_corrections.dart';
 import '../models/day_times.dart';
 import '../models/ghuroubi_now.dart';
-import '../models/location_data.dart';
 import 'announcements_provider.dart';
 import 'location_provider.dart';
 import 'settings_provider.dart';
@@ -58,10 +57,8 @@ class MinuteTicker extends Notifier<DateTime> {
   }
 
   void _schedule() {
-    final now = DateTime.now();
-    final next = DateTime(now.year, now.month, now.day, now.hour, now.minute)
-        .add(const Duration(minutes: 1));
-    _timer = Timer(next.difference(now), () {
+    _timer = Timer(
+        Duration(milliseconds: millisUntilNextMinute(DateTime.now())), () {
       state = DateTime.now();
       _schedule();
     });
@@ -76,11 +73,15 @@ class MinuteTicker extends Notifier<DateTime> {
   }
 }
 
+/// المللي ثانية حتى بداية الدقيقة التالية (1..60000)، محسوبةً من الزمن المطلق:
+/// بناؤها من حقول الساعة المحلية يعطي انتظاراً سالباً في الساعة المكرّرة عند تأخير
+/// التوقيت الصيفي، فيدور المؤقّت بلا توقّف ساعةً كاملة. (فروق المناطق الزمنية
+/// دقائق كاملة، فحدود الدقيقة واحدة محلياً وعالمياً.)
+int millisUntilNextMinute(DateTime now) =>
+    60000 - now.millisecondsSinceEpoch % 60000;
+
 final minuteTickerProvider =
     NotifierProvider<MinuteTicker, DateTime>(MinuteTicker.new);
-
-/// مفتاح اليوم (بلا وقت) لتثبيت تخزين [prayerDayProvider].
-DateTime dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
 /// خريطة تصحيحات جدول أم القرى المشتقّة من الإعلانات المخزّنة — المرجع الموحّد
 /// للتاريخ الهجري في كل التطبيق (الساعة + التقويم + كشف رمضان).
@@ -90,18 +91,29 @@ final hijriAdjustmentsProvider = Provider.autoDispose<Map<int, int>>((ref) {
   return adjustmentsFromAnnouncements(anns);
 });
 
-/// مواقيت يوم معيّن (مع تصحيح الارتفاع وتجاوز الارتفاع اليدوي).
+/// يُبقي الحساب مخزّناً ما دام مُراقَباً، ثم [linger] بعد آخر مراقب فيُحرَّر — بدل
+/// `keepAlive()` الدائم الذي كان يُراكم يوماً جديداً كل يوم وكل خلية تقويم تُفتح.
+void _cacheWhileUsed(Ref<Object?> ref,
+    {Duration linger = const Duration(minutes: 5)}) {
+  final link = ref.keepAlive();
+  Timer? timer;
+  ref.onCancel(() => timer = Timer(linger, link.close));
+  ref.onResume(() => timer?.cancel());
+  ref.onDispose(() => timer?.cancel());
+}
+
+/// مواقيت يوم معيّن. المفتاح تاريخ بلا وقت ([dateOnly]/[addDays]) كي لا ينقسم
+/// التخزين بين مفاتيح تختلف بساعة التوقيت الصيفي.
 final prayerDayProvider =
     Provider.autoDispose.family<DayTimes, DateTime>((ref, date) {
-  final loc0 = ref.watch(locationProvider);
+  final loc = ref.watch(locationProvider);
   final settings = ref.watch(settingsProvider);
   final adjustments = ref.watch(hijriAdjustmentsProvider);
-  final LocationData loc = settings.manualAltitude != null
-      ? loc0.copyWith(altitude: settings.manualAltitude)
-      : loc0;
-  ref.keepAlive(); // احتفظ بالحساب ما دام اليوم مرجوعاً
+  _cacheWhileUsed(ref);
   return computeDayTimes(loc, dateOnly(date), settings.method,
-      hijriAdjust: settings.hijriAdjust, adjustments: adjustments);
+      hijriAdjust: settings.hijriAdjust,
+      adjustments: adjustments,
+      horizonHeight: settings.horizonHeight);
 });
 
 /// التاريخ الهجري الغروبي مخزَّن بمفتاح (التاريخ الميلادي الغروبي) — يُحسب مرة
@@ -110,7 +122,7 @@ final ghuroubiHijriProvider =
     Provider.autoDispose.family<HijriCalendar, DateTime>((ref, civilDate) {
   final adjust = ref.watch(settingsProvider.select((s) => s.hijriAdjust));
   final adjustments = ref.watch(hijriAdjustmentsProvider);
-  ref.keepAlive();
+  _cacheWhileUsed(ref);
   return correctedHijri(civilDate, adjustments, manualAdjust: adjust);
 });
 
@@ -118,36 +130,17 @@ final ghuroubiHijriProvider =
 /// تُحسب في widgets صغيرة تراقب [secondTickerProvider] اعتماداً على [GhuroubiNow.nextSunset].
 final ghuroubiNowProvider = Provider.autoDispose<GhuroubiNow>((ref) {
   final now = ref.watch(minuteTickerProvider);
-  final today0 = dateOnly(now);
-
-  final yesterday =
-      ref.watch(prayerDayProvider(today0.subtract(const Duration(days: 1))));
-  final today = ref.watch(prayerDayProvider(today0));
-  final tomorrow =
-      ref.watch(prayerDayProvider(today0.add(const Duration(days: 1))));
-
-  final clock = GhuroubiClock.at(
-    now: now,
-    yesterdayMaghrib: yesterday.maghrib,
-    todaySunrise: today.sunrise,
-    todayMaghrib: today.maghrib,
-    tomorrowMaghrib: tomorrow.maghrib,
-  );
-
-  final nextSunset =
-      now.isBefore(today.maghrib) ? today.maghrib : tomorrow.maghrib;
-
-  final civil = ghuroubiCivilDate(now, today.maghrib);
-  final hijri = ref.watch(ghuroubiHijriProvider(civil));
+  final day = ghuroubiDayAt(now, (date) => ref.watch(prayerDayProvider(date)));
+  final hijri = ref.watch(ghuroubiHijriProvider(day.civilDate));
   final solar = solarTime(now, ref.watch(locationProvider).longitude);
 
   return GhuroubiNow(
     now: now,
-    clock: clock,
-    ghuroubiCivilDate: civil,
+    clock: day.clock,
+    ghuroubiCivilDate: day.civilDate,
     hijri: hijri,
     solar: solar,
-    today: today,
-    nextSunset: nextSunset,
+    today: day.today,
+    nextSunset: day.nextSunset,
   );
 });

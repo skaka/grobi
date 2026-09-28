@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- أيقونة شريط الحالة: هلال ونجمة بلون واحد (يلوّنها النظام). الأيقونة الملوّنة
+     للتطبيق تظهر مربعاً أبيض في شريط الحالة. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- الهلال: قوس الدائرة الخارجية (مركز 11،12 نصف قطر 8) ثم قوس الداخلية (15،9 نصف قطر 7). -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M10.043,4.058 A8,8 0 1,0 18.357,15.142 A7,7 0 0,1 10.043,4.058 Z" />
+    <!-- النجمة داخل فتحة الهلال. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M18.5,3.2 L19.4,5.6 L21.8,6.5 L19.4,7.4 L18.5,9.8 L17.6,7.4 L15.2,6.5 L17.6,5.6 Z" />
+</vector>

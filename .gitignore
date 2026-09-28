@@ -46,6 +46,7 @@ app.*.map.json
 
 # خادم PHP/الويب — يبقى محلياً ولا يُرفع إلى GitHub مطلقاً
 /server/
+/server_private/
 /server_upload.zip
 
 # إعدادات Claude Code المحلية
@@ -55,3 +56,17 @@ app.*.map.json
 /lib/firebase_options.dart
 /ios/Runner/GoogleService-Info.plist
 /android/app/google-services.json
+
+# مفاتيح التوقيع والشهادات والأسرار — في أي مجلد (المستودع عام)
+*.jks
+*.keystore
+*.p8
+*.p12
+*.pem
+*.mobileprovision
+.env*
+**/service-account*.json
+
+# خطط الوكيل وإعدادات المحرّر المحلية — تكشف مسارات وبنية الاستضافة
+AGENT_PLAN*.md
+.vscode/

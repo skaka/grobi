@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../core/ghuroubi_clock.dart';
+import '../l10n/l10n.dart';
 import '../theme.dart';
 
 /// وجه الساعة الغروبية: قوس يمثّل انقضاء اليوم الغروبي، المغرب عند الأعلى (12).
@@ -39,7 +40,7 @@ class GhuroubiFace extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  clock.isDaytime ? 'نهار' : 'ليل',
+                  clock.isDaytime ? context.l10n.faceDay : context.l10n.faceNight,
                   style: const TextStyle(fontSize: 18, color: AppColors.gold),
                 ),
               ],

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- لغات التطبيق (أندرويد 13+): يظهر التطبيق في «لغة التطبيقات» بإعدادات النظام. -->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="ar"/>
+    <locale android:name="en"/>
+</locale-config>

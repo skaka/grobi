@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- نصوص النظام بالعربية (الافتراضي). مفاتيح notif_* يرسلها الخادم (title_loc_key)
+     فيعرض أندرويد نصّ لغة الجهاز حين يكون التطبيق مغلقاً. المعاملات: %1$s اسم
+     الدولة بالعربية، %2$s بالإنجليزية، %3$s السنة الهجرية. تطابق server/lib/events.php. -->
+<resources>
+    <string name="app_name">التوقيت الغروبي</string>
+
+    <string name="notif_hijri_new_year_title">🌙 رأس السنة الهجرية %3$s هـ</string>
+    <string name="notif_hijri_new_year_body">ثبتت غُرّة محرّم في %1$s — كل عام وأنتم بخير.</string>
+    <string name="notif_shaban_title">🌙 دخول شهر شعبان</string>
+    <string name="notif_shaban_body">أعلنت %1$s دخول شهر شعبان — استعداداً لرمضان.</string>
+    <string name="notif_ramadan_title">🌙 ثبوت شهر رمضان</string>
+    <string name="notif_ramadan_body">أعلنت %1$s دخول شهر رمضان المبارك — رمضان كريم.</string>
+    <string name="notif_eid_fitr_title">🌙 ثبوت شوّال — عيد الفطر</string>
+    <string name="notif_eid_fitr_body">أعلنت %1$s ثبوت شوّال، وغداً عيد الفطر — عيد مبارك.</string>
+    <string name="notif_dhul_hijjah_title">🌙 دخول ذي الحجة</string>
+    <string name="notif_dhul_hijjah_body">أعلنت %1$s دخول ذي الحجة — يوم عرفة وعيد الأضحى قريباً.</string>
+</resources>

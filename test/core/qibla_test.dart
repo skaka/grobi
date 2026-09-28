@@ -41,4 +41,41 @@ void main() {
           inInclusiveRange(1200.0, 1400.0));
     });
   });
+
+  group('الشمال الحقيقي', () {
+    test('الاتجاه الحقيقي = المغناطيسي + الانحراف (شرقاً موجب)', () {
+      expect(trueHeading(100, 4), 104);
+      expect(trueHeading(358, 4), closeTo(2, 1e-9));
+      expect(trueHeading(2, -4), closeTo(358, 1e-9));
+    });
+
+    test('الزاوية إلى القبلة موقَّعة في (−180، 180]', () {
+      expect(angleToQibla(0, 90), 90);
+      expect(angleToQibla(90, 0), -90);
+      expect(angleToQibla(350, 10), closeTo(20, 1e-9));
+      expect(angleToQibla(10, 350), closeTo(-20, 1e-9));
+      expect(angleToQibla(0, 180), 180);
+    });
+
+    test('بلا تصحيح كان «تواجه القبلة» يظهر والمستخدم منحرف ~٩°', () {
+      // انحراف ٤° شرقاً، والمستخدم متّجه فعلياً إلى القبلة + ٨٫٥° (حدّ ±٥ القديم
+      // + ٤ انحراف ⇒ حتى ~٩° كانت تُعدّ مواجهة).
+      const bearing = 182.0, declination = 4.0;
+      final magneticReading = bearing + 8.5 - declination; // ما تقرؤه البوصلة
+      expect(angleToQibla(magneticReading, bearing).abs() < 5, isTrue,
+          reason: 'المنطق القديم: يعدّه مواجهاً');
+      expect(
+          angleToQibla(trueHeading(magneticReading, declination), bearing)
+                  .abs() <
+              5,
+          isFalse,
+          reason: 'بالتصحيح: منحرف ٨٫٥°');
+    });
+
+    test('شدّة المجال خارج المدى الأرضي ⇒ تشويش', () {
+      expect(magneticFieldSuspicious(0, 30, -30), isFalse); // ~٤٢ ميكروتسلا
+      expect(magneticFieldSuspicious(0, 5, 5), isTrue); // ~٧
+      expect(magneticFieldSuspicious(100, 100, 0), isTrue); // ~١٤١
+    });
+  });
 }

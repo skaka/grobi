@@ -5,10 +5,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/countries.dart';
 import '../core/format_utils.dart';
 import '../core/prayer_service.dart';
+import '../l10n/l10n.dart';
+import '../models/location_data.dart';
+import '../providers/announcements_provider.dart';
+import '../providers/countries_provider.dart';
 import '../providers/location_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/time_providers.dart';
+import '../services/fcm_service.dart';
 import '../theme.dart';
+import '../widgets/location_picker.dart';
 import 'about_screen.dart';
 
 /// صفحة الإعدادات الموحّدة — تجمع كل ضوابط المواقيت والمناسبات في مكان واحد.
@@ -21,6 +27,8 @@ class SettingsScreen extends ConsumerWidget {
         ref.watch(ghuroubiNowProvider.select((g) => g.clock.isDaytime));
     final settings = ref.watch(settingsProvider);
     final loc = ref.watch(locationProvider);
+    final anchorsActive = ref.watch(hijriAdjustmentsProvider).isNotEmpty;
+    final l10n = context.l10n;
 
     return Container(
       decoration: BoxDecoration(gradient: backgroundGradient(isDaytime)),
@@ -31,8 +39,8 @@ class SettingsScreen extends ConsumerWidget {
           elevation: 0,
           scrolledUnderElevation: 0,
           iconTheme: const IconThemeData(color: AppColors.onDark),
-          title: const Text('الإعدادات',
-              style: TextStyle(
+          title: Text(l10n.settingsTitle,
+              style: const TextStyle(
                   color: AppColors.gold, fontWeight: FontWeight.w700)),
         ),
         body: SafeArea(
@@ -42,20 +50,23 @@ class SettingsScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _sectionTitle('المواقيت'),
-                _methodPicker(ref, settings.method),
-                const SizedBox(height: 10),
-                _hijriAdjust(ref, settings.hijriAdjust),
-                const SizedBox(height: 10),
-                _altitudeControl(
-                    context, ref, settings.manualAltitude, loc.altitude),
+                _languagePicker(l10n, ref, settings.languageCode),
                 const SizedBox(height: 20),
-                _sectionTitle('المناسبات'),
-                _countryPicker(ref, settings.countryCode),
-                const SizedBox(height: 10),
-                _autoCalibrate(ref, settings.autoCalibrate),
+                _sectionTitle(l10n.sectionLocation),
+                _locationTile(context, loc),
                 const SizedBox(height: 20),
-                _sectionTitle('معلومات'),
+                _sectionTitle(l10n.sectionPrayerTimes),
+                _methodPicker(l10n, ref, settings.method),
+                const SizedBox(height: 10),
+                _hijriAdjust(l10n, ref, settings.hijriAdjust, anchorsActive),
+                const SizedBox(height: 20),
+                _sectionTitle(l10n.sectionEvents),
+                _countryPicker(l10n, ref, settings.countryCode),
+                const SizedBox(height: 20),
+                _sectionTitle(l10n.sectionAdvanced),
+                _horizonControl(context, ref, settings.horizonHeight),
+                const SizedBox(height: 20),
+                _sectionTitle(l10n.sectionInfo),
                 _aboutTile(context),
               ],
             ),
@@ -76,13 +87,46 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _methodPicker(WidgetRef ref, CalculationMethod current) {
+  /// لغة الواجهة: لغة الجهاز (افتراضياً) أو العربية أو الإنجليزية. أسماء اللغتين
+  /// تُكتب بلغتيهما (عُرف شائع كي يجدها من لا يقرأ اللغة الحالية).
+  Widget _languagePicker(
+      AppLocalizations l10n, WidgetRef ref, String? languageCode) {
+    return _card(
+      child: Row(
+        children: [
+          const Icon(Icons.translate, color: AppColors.gold, size: 20),
+          const SizedBox(width: 10),
+          Text(l10n.language, style: const TextStyle(color: AppColors.muted)),
+          const Spacer(),
+          DropdownButton<String>(
+            value: languageCode ?? '',
+            dropdownColor: AppColors.surface,
+            underline: const SizedBox.shrink(),
+            style:
+                const TextStyle(color: AppColors.onDark, fontFamily: 'Cairo'),
+            items: [
+              DropdownMenuItem(value: '', child: Text(l10n.languageDevice)),
+              const DropdownMenuItem(value: 'ar', child: Text('العربية')),
+              const DropdownMenuItem(value: 'en', child: Text('English')),
+            ],
+            onChanged: (code) => ref
+                .read(settingsProvider.notifier)
+                .setLanguage(code == null || code.isEmpty ? null : code),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _methodPicker(
+      AppLocalizations l10n, WidgetRef ref, CalculationMethod current) {
     return _card(
       child: Row(
         children: [
           const Icon(Icons.calculate_outlined, color: AppColors.gold, size: 20),
           const SizedBox(width: 10),
-          const Text('طريقة الحساب', style: TextStyle(color: AppColors.muted)),
+          Text(l10n.calculationMethod,
+              style: const TextStyle(color: AppColors.muted)),
           const SizedBox(width: 10),
           Expanded(
             child: DropdownButton<CalculationMethod>(
@@ -98,7 +142,7 @@ class SettingsScreen extends ConsumerWidget {
                   Align(
                     alignment: AlignmentDirectional.centerStart,
                     child: Text(
-                      calculationMethodArabicName(m),
+                      calculationMethodName(m),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -106,7 +150,7 @@ class SettingsScreen extends ConsumerWidget {
               items: [
                 for (final m in supportedMethods)
                   DropdownMenuItem(
-                      value: m, child: Text(calculationMethodArabicName(m))),
+                      value: m, child: Text(calculationMethodName(m))),
               ],
               onChanged: (m) {
                 if (m != null) ref.read(settingsProvider.notifier).setMethod(m);
@@ -118,53 +162,142 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _hijriAdjust(WidgetRef ref, int adjust) {
+  Widget _locationTile(BuildContext context, LocationData loc) {
+    return _card(
+      child: InkWell(
+        onTap: () => showLocationPicker(context),
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            children: [
+              Icon(loc.isFallback ? Icons.location_off : Icons.place_outlined,
+                  color: AppColors.gold, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(locationSourceLabel(loc),
+                        style: const TextStyle(color: AppColors.onDark)),
+                    Text(
+                        localDigits('${loc.latitude.toStringAsFixed(3)}°، '
+                            '${loc.longitude.toStringAsFixed(3)}°'),
+                        style: const TextStyle(
+                            color: AppColors.muted, fontSize: 12)),
+                  ],
+                ),
+              ),
+              Text(context.l10n.change,
+                  style: const TextStyle(color: AppColors.gold)),
+              // chevron_right يُعكَس تلقائياً في RTL فيشير «للأمام» في اللغتين.
+              const Icon(Icons.chevron_right, color: AppColors.muted),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// التعديل اليدوي (±يوم) احتياطي: يُضاف **فوق** تثبيتات إعلانات الدولة، فإن
+  /// كانت التثبيتات فعّالة وهو غير صفر فالتصحيح مزدوج — ننبّه ونعرض التصفير.
+  Widget _hijriAdjust(
+      AppLocalizations l10n, WidgetRef ref, int adjust, bool anchorsActive) {
     final notifier = ref.read(settingsProvider.notifier);
     return _card(
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Icon(Icons.event_outlined, color: AppColors.gold, size: 20),
-          const SizedBox(width: 10),
-          const Text('تعديل التاريخ الهجري',
-              style: TextStyle(color: AppColors.muted)),
-          const Spacer(),
-          IconButton(
-            onPressed: () => notifier.setHijriAdjust(adjust - 1),
-            icon:
-                const Icon(Icons.remove_circle_outline, color: AppColors.onDark),
+          Row(
+            children: [
+              const Icon(Icons.event_outlined, color: AppColors.gold, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(l10n.manualHijriAdjust,
+                    style: const TextStyle(color: AppColors.muted)),
+              ),
+              IconButton(
+                onPressed: () => notifier.setHijriAdjust(adjust - 1),
+                icon: const Icon(Icons.remove_circle_outline,
+                    color: AppColors.onDark),
+              ),
+              Text(localDigits(adjust > 0 ? '+$adjust' : '$adjust'),
+                  style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.onDark)),
+              IconButton(
+                onPressed: () => notifier.setHijriAdjust(adjust + 1),
+                icon: const Icon(Icons.add_circle_outline,
+                    color: AppColors.onDark),
+              ),
+            ],
           ),
-          Text(toArabicDigits(adjust > 0 ? '+$adjust' : '$adjust'),
-              style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.onDark)),
-          IconButton(
-            onPressed: () => notifier.setHijriAdjust(adjust + 1),
-            icon: const Icon(Icons.add_circle_outline, color: AppColors.onDark),
-          ),
+          if (anchorsActive && adjust != 0)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      color: AppColors.gold, size: 18),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(l10n.doubleCorrectionWarning,
+                        style: const TextStyle(
+                            color: AppColors.gold, fontSize: 12)),
+                  ),
+                  TextButton(
+                    onPressed: () => notifier.setHijriAdjust(0),
+                    child: Text(l10n.reset),
+                  ),
+                ],
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(l10n.manualAdjustHint,
+                  style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+            ),
         ],
       ),
     );
   }
 
-  Widget _altitudeControl(
-      BuildContext context, WidgetRef ref, double? manual, double gpsAltitude) {
-    final effective = manual ?? gpsAltitude;
+  /// ارتفاع الراصد **فوق الأفق المحيط** — لا ارتفاع المدينة. معطّل افتراضياً كي
+  /// تطابق المواقيت تقويم أم القرى الرسمي.
+  Widget _horizonControl(BuildContext context, WidgetRef ref, double height) {
+    final l10n = context.l10n;
     return _card(
       child: Row(
         children: [
           const Icon(Icons.terrain_outlined, color: AppColors.gold, size: 20),
           const SizedBox(width: 10),
-          Text(manual != null ? 'الارتفاع (يدوي)' : 'الارتفاع (GPS)',
-              style: const TextStyle(color: AppColors.muted)),
-          const Spacer(),
-          Text(toArabicDigits('${effective.round()} م'),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l10n.horizonTitle,
+                    style:
+                        const TextStyle(color: AppColors.onDark, fontSize: 14)),
+                const SizedBox(height: 2),
+                Text(l10n.horizonDescription,
+                    style:
+                        const TextStyle(color: AppColors.muted, fontSize: 12)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+              height > 0
+                  ? l10n.meters(localDigits('${height.round()}'))
+                  : l10n.off,
               style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.w700,
                   color: AppColors.onDark)),
           IconButton(
-            onPressed: () => _editAltitude(context, ref, effective),
+            onPressed: () => _editHorizon(context, ref, height),
             icon: const Icon(Icons.edit, color: AppColors.gold, size: 18),
           ),
         ],
@@ -172,95 +305,86 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _editAltitude(
+  Future<void> _editHorizon(
       BuildContext context, WidgetRef ref, double current) async {
-    final controller = TextEditingController(text: current.round().toString());
-    final result = await showDialog<double?>(
+    final l10n = context.l10n;
+    final controller = TextEditingController(
+        text: current > 0 ? current.round().toString() : '');
+    final result = await showDialog<double>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title: const Text('الارتفاع عن سطح البحر (متر)',
-            style: TextStyle(color: AppColors.onDark, fontSize: 18)),
+        title: Text(l10n.horizonDialogTitle,
+            style: const TextStyle(color: AppColors.onDark, fontSize: 18)),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
           style: const TextStyle(color: AppColors.onDark),
-          decoration: const InputDecoration(hintText: 'مثال: 760'),
+          decoration: InputDecoration(hintText: l10n.horizonDialogHint),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, double.nan), // إشارة المسح
-            child: const Text('استخدام GPS'),
+            onPressed: () => Navigator.pop(ctx, 0.0),
+            child: Text(l10n.turnOff),
           ),
           TextButton(
             onPressed: () =>
-                Navigator.pop(ctx, double.tryParse(controller.text)),
-            child: const Text('حفظ'),
+                Navigator.pop(ctx, parseLocalizedDouble(controller.text)),
+            child: Text(l10n.save),
           ),
         ],
       ),
     );
-    if (result == null) return;
-    final notifier = ref.read(settingsProvider.notifier);
-    if (result.isNaN) {
-      notifier.setManualAltitude(null); // العودة إلى GPS
-    } else {
-      notifier.setManualAltitude(result);
-    }
+    controller.dispose();
+    if (result == null || result.isNaN) return;
+    ref.read(settingsProvider.notifier).setHorizonHeight(result);
   }
 
-  Widget _countryPicker(WidgetRef ref, String? countryCode) {
+  Widget _countryPicker(
+      AppLocalizations l10n, WidgetRef ref, String? countryCode) {
+    final countries = ref.watch(countriesProvider);
+    // دولة محفوظة لم تعد في قائمة الخادم تبقى ظاهرة (DropdownButton يشترط وجودها).
+    final items = [
+      ...countries,
+      if (countryCode != null && !countries.any((c) => c.code == countryCode))
+        Country(countryCode, countryName(countryCode) ?? countryCode),
+    ];
     return _card(
       child: Row(
         children: [
           const Icon(Icons.public, color: AppColors.gold, size: 20),
           const SizedBox(width: 10),
-          const Text('الدولة', style: TextStyle(color: AppColors.muted)),
+          Text(l10n.country, style: const TextStyle(color: AppColors.muted)),
           const Spacer(),
           DropdownButton<String>(
             value: countryCode,
-            hint: const Text('اختر', style: TextStyle(color: AppColors.muted)),
+            hint: Text(l10n.choose,
+                style: const TextStyle(color: AppColors.muted)),
             dropdownColor: AppColors.surface,
             underline: const SizedBox.shrink(),
             style:
                 const TextStyle(color: AppColors.onDark, fontFamily: 'Cairo'),
             items: [
-              for (final c in kCountries)
-                DropdownMenuItem(value: c.code, child: Text(c.nameAr)),
+              for (final c in items)
+                DropdownMenuItem(value: c.code, child: Text(c.name)),
             ],
-            onChanged: (code) =>
-                ref.read(settingsProvider.notifier).setCountryCode(code),
+            onChanged: (code) => _onCountryChanged(ref, countryCode, code),
           ),
         ],
       ),
     );
   }
 
-  Widget _autoCalibrate(WidgetRef ref, bool value) {
-    return _card(
-      child: Row(
-        children: [
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('تصحيح التقويم تلقائياً',
-                    style: TextStyle(color: AppColors.onDark, fontSize: 14)),
-                SizedBox(height: 2),
-                Text('طبّق تعديل التاريخ من الإشعارات بلا سؤال',
-                    style: TextStyle(color: AppColors.muted, fontSize: 12)),
-              ],
-            ),
-          ),
-          Switch(
-            value: value,
-            activeThumbColor: AppColors.gold,
-            onChanged: (v) =>
-                ref.read(settingsProvider.notifier).setAutoCalibrate(v),
-          ),
-        ],
-      ),
-    );
+  /// اختيار الدولة هو لحظة طلب إذن التنبيهات (حين يصير لها معنى)، ثم تُستبدل
+  /// تثبيتات الدولة السابقة بإعلانات الجديدة.
+  Future<void> _onCountryChanged(
+      WidgetRef ref, String? previous, String? code) async {
+    if (code == null || code == previous) return;
+    // يُلتقط قبل الانتظار: قد تُغلق الصفحة أثناء حوار الإذن.
+    final announcements = ref.read(announcementsProvider.notifier);
+    ref.read(settingsProvider.notifier).setCountryCode(code);
+    await FcmService.requestNotificationPermission();
+    await announcements.switchCountry();
   }
 
   Widget _aboutTile(BuildContext context) {
@@ -270,15 +394,16 @@ class SettingsScreen extends ConsumerWidget {
           MaterialPageRoute(builder: (_) => const AboutScreen()),
         ),
         borderRadius: BorderRadius.circular(14),
-        child: const Padding(
-          padding: EdgeInsets.symmetric(vertical: 10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
           child: Row(
             children: [
-              Icon(Icons.info_outline, color: AppColors.gold, size: 20),
-              SizedBox(width: 10),
-              Text('عن التطبيق', style: TextStyle(color: AppColors.muted)),
-              Spacer(),
-              Icon(Icons.chevron_left, color: AppColors.muted),
+              const Icon(Icons.info_outline, color: AppColors.gold, size: 20),
+              const SizedBox(width: 10),
+              Text(context.l10n.aboutApp,
+                  style: const TextStyle(color: AppColors.muted)),
+              const Spacer(),
+              const Icon(Icons.chevron_right, color: AppColors.muted),
             ],
           ),
         ),

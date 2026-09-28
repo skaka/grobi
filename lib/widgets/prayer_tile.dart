@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/format_utils.dart';
 import '../core/ghuroubi_clock.dart';
 import '../core/solar_time.dart';
+import '../l10n/l10n.dart';
 import '../models/day_times.dart';
 import '../theme.dart';
 
@@ -70,7 +71,7 @@ class PrayerTile extends StatelessWidget {
               children: [
                 Flexible(
                   child: Text(
-                    kind.arabicName,
+                    prayerName(kind),
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 17,
@@ -87,11 +88,14 @@ class PrayerTile extends StatelessWidget {
               ],
             ),
           ),
-          Expanded(flex: 2, child: _col('غروبي', toArabicDigits(ghuroubi.format()))),
           Expanded(
               flex: 2,
-              child: _col('زوالي', fmt12FromHm(solar.hour, solar.minute))),
-          Expanded(flex: 2, child: _col('مدني', fmt12(time))),
+              child: _col(context.l10n.colGhuroubi, localDigits(ghuroubi.format()))),
+          Expanded(
+              flex: 2,
+              child: _col(context.l10n.colZawali,
+                  fmt12FromHm(solar.hour, solar.minute))),
+          Expanded(flex: 2, child: _col(context.l10n.colCivil, fmt12(time))),
         ],
       ),
     );

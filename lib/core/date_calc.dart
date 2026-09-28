@@ -3,6 +3,8 @@ library;
 
 import 'package:hijri/hijri_calendar.dart';
 
+import 'date_utils.dart';
+
 /// فرق مُفصَّل بين تاريخين: سنوات وأشهر وأيام (بعد استعارة الحدود).
 class YmdDiff {
   final int years;
@@ -10,8 +12,6 @@ class YmdDiff {
   final int days;
   const YmdDiff(this.years, this.months, this.days);
 }
-
-DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
 /// عدد أيام شهر ميلادي (يراعي كبيسة فبراير).
 int gregorianDaysInMonth(int year, int month) {
@@ -73,8 +73,8 @@ class DurationBreakdown {
 /// يحسب المدة بين تاريخين ميلاديين. يرتّب التاريخين تلقائياً (الأقدم أولاً)،
 /// فالنتيجة دائماً موجبة بصرف النظر عن ترتيب الإدخال.
 DurationBreakdown durationBetween(DateTime a, DateTime b) {
-  var from = _dateOnly(a);
-  var to = _dateOnly(b);
+  var from = dateOnly(a);
+  var to = dateOnly(b);
   if (to.isBefore(from)) {
     final t = from;
     from = to;
@@ -106,6 +106,7 @@ DurationBreakdown durationBetween(DateTime a, DateTime b) {
   return DurationBreakdown(
     gregorian: greg,
     hijri: hijri,
-    totalDays: to.difference(from).inDays,
+    // أيام تقويمية (لا `difference().inDays` التي تُنقص يوماً عبر تقديم الساعة).
+    totalDays: daysBetween(from, to),
   );
 }

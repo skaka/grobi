@@ -3,13 +3,17 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/format_utils.dart';
-import '../core/prayer_service.dart';
+import '../l10n/l10n.dart';
 import '../models/app_settings.dart';
+import '../models/location_data.dart';
 import '../providers/location_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/announcements_api.dart';
 import '../services/diag_log.dart';
+import '../services/crash_reporter.dart';
+import '../services/fcm_service.dart';
 import '../theme.dart';
+import '../widgets/location_picker.dart';
 
 /// شاشة تشخيص مخفية (تُفتح بضغطة مطوّلة في شاشة المناسبات): لقطة الإعدادات
 /// الحالية + سجلّ الأحداث (إشعارات/مزامنات/تعديلات تقويم/أخطاء).
@@ -22,11 +26,37 @@ class DiagnosticsScreen extends ConsumerStatefulWidget {
 
 class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
   late Future<List<String>> _entries;
+  bool? _testTopic; // null حتى يُقرأ التفضيل
 
   @override
   void initState() {
     super.initState();
     _entries = DiagLog.entries();
+    FcmService.testTopicEnabled().then((v) {
+      if (mounted) setState(() => _testTopic = v);
+    });
+  }
+
+  Future<void> _sendTestCrash() async {
+    final ok = await CrashReporter.sendTestReport();
+    if (!mounted) return;
+    _refresh();
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(ok
+            ? 'أُرسل — يظهر في لوحة Firebase ▸ Crashlytics خلال دقائق'
+            : 'تعذّر: Firebase غير مهيّأ')));
+  }
+
+  Future<void> _toggleTestTopic(bool enabled) async {
+    final ok = await FcmService.setTestTopic(enabled);
+    if (!mounted) return;
+    if (ok) {
+      setState(() => _testTopic = enabled);
+      _refresh();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تعذّر: خدمة الإشعارات غير مهيّأة')));
+    }
   }
 
   void _refresh() => setState(() => _entries = DiagLog.entries());
@@ -68,7 +98,38 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _snapshotCard(settings, loc.altitude),
+            _snapshotCard(settings, loc),
+            const SizedBox(height: 12),
+            _card(
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('إشعارات الاختبار',
+                            style: TextStyle(color: AppColors.onDark)),
+                        SizedBox(height: 2),
+                        Text('يستقبل هذا الجهاز «الإرسال التجريبي» من لوحة التحكّم '
+                            '(موضوع test) دون أيّ مشترك آخر.',
+                            style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: _testTopic ?? false,
+                    activeThumbColor: AppColors.gold,
+                    onChanged: _testTopic == null ? null : _toggleTestTopic,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _sendTestCrash,
+              icon: const Icon(Icons.bug_report_outlined, size: 18),
+              label: const Text('إرسال تقرير أعطال تجريبي (Crashlytics)'),
+            ),
             const SizedBox(height: 16),
             FutureBuilder<List<String>>(
               future: _entries,
@@ -116,7 +177,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
     );
   }
 
-  Widget _snapshotCard(AppSettings settings, double altitude) {
+  Widget _snapshotCard(AppSettings settings, LocationData loc) {
     String adj(int a) => a > 0 ? '+$a' : '$a';
     return _card(
       child: Column(
@@ -126,12 +187,13 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
               style: TextStyle(
                   color: AppColors.gold, fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
-          _row('طريقة الحساب', calculationMethodArabicName(settings.method)),
+          _row('طريقة الحساب', calculationMethodName(settings.method)),
           _row('تعديل التاريخ الهجري', toArabicDigits(adj(settings.hijriAdjust))),
-          _row('التصحيح التلقائي', settings.autoCalibrate ? 'مُفعّل' : 'متوقّف'),
           _row('الدولة', settings.countryCode ?? '—'),
           _row('الخادم', kAnnouncementsBaseUrl),
-          _row('الارتفاع', toArabicDigits('${altitude.round()} م')),
+          _row('الموقع', locationSourceLabel(loc)),
+          _row('الارتفاع فوق الأفق',
+              toArabicDigits('${settings.horizonHeight.round()} م')),
         ],
       ),
     );
